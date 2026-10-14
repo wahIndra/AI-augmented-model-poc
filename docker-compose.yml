@@ -1,0 +1,51 @@
+# Full stack for benchmark runs (STORE_BACKEND=services). Development does not need any of this.
+#   docker compose up -d qdrant neo4j neo4j-oracle dashboard
+#   docker compose run --rm oagbench generate --profile full
+# All ports bind to localhost only. Phase 3 review: pin image tags to digests.
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports: ["127.0.0.1:6333:6333"]
+    volumes: [qdrant:/qdrant/storage]
+
+  neo4j:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD in .env}
+      NEO4J_PLUGINS: '["apoc"]'
+    ports: ["127.0.0.1:7474:7474", "127.0.0.1:7687:7687"]
+    volumes: [neo4j:/data]
+
+  neo4j-oracle:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD in .env}
+    ports: ["127.0.0.1:7688:7687"]
+    volumes: [neo4j-oracle:/data]
+
+  oagbench:
+    build: .
+    profiles: [cli]
+    env_file: .env
+    environment:
+      STORE_BACKEND: services
+      QDRANT_URL: http://qdrant:6333
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_ORACLE_URI: bolt://neo4j-oracle:7687
+    volumes: ["./data:/work/data", "./results:/work/results"]
+    depends_on: [qdrant, neo4j, neo4j-oracle]
+
+  dashboard:
+    build: .
+    entrypoint: ["python", "-m", "streamlit", "run", "/opt/venv/lib/python3.12/site-packages/oagbench/dashboard/app.py",
+                 "--server.address", "0.0.0.0", "--server.port", "8501", "--browser.gatherUsageStats", "false"]
+    environment:
+      RESULTS_DIR: /work/results
+      DATA_DIR: /work/data
+    ports: ["127.0.0.1:8501:8501"]
+    volumes: ["./data:/work/data:ro", "./results:/work/results:ro"]
+
+volumes:
+  qdrant:
+  neo4j:
+  neo4j-oracle:

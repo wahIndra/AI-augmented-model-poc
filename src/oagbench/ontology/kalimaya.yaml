@@ -1,0 +1,65 @@
+# Ontology for the fictional company Kalimaya Digital. Single source of truth for the generator,
+# the extraction schema, extraction validation and the schema text shown to text-to-Cypher.
+name: kalimaya
+classes:
+  OrgUnit:
+    description: Top-level division of the company.
+    properties: {}
+  Team:
+    description: Engineering team that owns services.
+    properties:
+      slack_channel: string
+      oncall_rotation: string
+  Person:
+    description: Employee.
+    properties:
+      role: string
+  Service:
+    description: Deployable software service.
+    properties:
+      tier: {enum: [T1, T2, T3]}
+      slo_availability: string
+      lifecycle: {enum: [active, deprecated, retired]}
+  Datastore:
+    description: Database, cache, queue or bucket.
+    properties:
+      engine: {enum: [postgres, redis, kafka, s3, mongo]}
+      version: string
+  Region:
+    description: Hosting region.
+    properties:
+      country: string
+  DataClass:
+    description: Category of data a service handles.
+    properties: {}
+  Vendor:
+    description: External SaaS or API provider.
+    properties:
+      category: string
+  Policy:
+    description: Data-handling rule.
+    properties:
+      rule_text: string
+      min_tier: {enum: [T1, T2, T3]}
+  Incident:
+    description: Production incident with a postmortem.
+    properties:
+      occurred_on: string
+      severity: {enum: [SEV1, SEV2, SEV3, SEV4]}
+      duration_min: string
+relations:
+  CONTAINS: {from: OrgUnit, to: Team, description: org unit contains team}
+  HAS_MEMBER: {from: Team, to: Person}
+  LEADS: {from: Person, to: Team, functional: true}
+  OWNS: {from: Team, to: Service, inverse_functional: true}
+  DEPENDS_ON: {from: Service, to: Service, transitive: true, description: source calls target at runtime}
+  USES_DATASTORE: {from: Service, to: Datastore}
+  PROCESSES: {from: Service, to: DataClass}
+  DEPLOYED_IN: {from: Service, to: Region, functional: true}
+  HOSTED_IN: {from: Datastore, to: Region, functional: true}
+  USES_VENDOR: {from: Service, to: Vendor}
+  GOVERNS: {from: Policy, to: DataClass}
+  ALLOWS_REGION: {from: Policy, to: Region}
+  AFFECTED: {from: Incident, to: Service}
+  ROOT_CAUSE: {from: Incident, to: Service, functional: true}
+  RESOLVED_BY: {from: Incident, to: Team, functional: true}
